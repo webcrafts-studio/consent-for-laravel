@@ -58,6 +58,22 @@ Consent::has('marketing'); // true or false
 Consent::decisions(); // ['necessary' => true, 'analytics' => false, ...]
 ```
 
+Open the preferences panel again from any page element:
+
+```blade
+<button type="button" data-consent-open-preferences>
+    Cookie settings
+</button>
+```
+
+Or call the browser API directly:
+
+```html
+<script>
+    window.ConsentForLaravel?.openPreferences();
+</script>
+```
+
 ## Configuration
 
 The default categories are:
@@ -75,6 +91,7 @@ This first version is intentionally small:
 
 - first-party consent cookie
 - publishable config, banner view, and preferences panel
+- public JS API for opening the preferences panel
 - `@consent` and `@unlessconsent` Blade directives
 - `Consent` facade and `ConsentManager`
 - no database dependency

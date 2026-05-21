@@ -77,7 +77,11 @@
             banner.hidden = false;
         }
 
-        if (preferences && currentDecisions) {
+        const syncPreferenceInputs = (decisions) => {
+            if (! preferences || ! decisions) {
+                return;
+            }
+
             preferences.querySelectorAll('[data-consent-category]').forEach((input) => {
                 if (input.disabled) {
                     input.checked = true;
@@ -85,9 +89,11 @@
                     return;
                 }
 
-                input.checked = currentDecisions[input.value] === true;
+                input.checked = decisions[input.value] === true;
             });
-        }
+        };
+
+        syncPreferenceInputs(currentDecisions);
 
         const writeConsentCookie = (decisions) => {
             const maxAge = Math.max(0, Number(config.lifetimeMinutes) || 0) * 60;
@@ -123,6 +129,40 @@
             );
         };
 
+        const openPreferences = () => {
+            if (! preferences) {
+                return;
+            }
+
+            syncPreferenceInputs(readConsentCookie());
+
+            banner.hidden = true;
+            preferences.hidden = false;
+        };
+
+        const closePreferences = () => {
+            if (! preferences) {
+                return;
+            }
+
+            preferences.hidden = true;
+            banner.hidden = Boolean(readConsentCookie());
+        };
+
+        window.ConsentForLaravel = {
+            ...(window.ConsentForLaravel || {}),
+            openPreferences,
+            closePreferences,
+            decisions: () => readConsentCookie() || decisionsForAll(false),
+        };
+
+        document.querySelectorAll('[data-consent-open-preferences]').forEach((trigger) => {
+            trigger.addEventListener('click', (event) => {
+                event.preventDefault();
+                openPreferences();
+            });
+        });
+
         banner.querySelector('[data-consent-accept]')?.addEventListener('click', () => {
             writeConsentCookie(decisionsForAll(true));
         });
@@ -132,17 +172,11 @@
         });
 
         banner.querySelector('[data-consent-customize]')?.addEventListener('click', () => {
-            if (! preferences) {
-                return;
-            }
-
-            banner.hidden = true;
-            preferences.hidden = false;
+            openPreferences();
         });
 
         preferences?.querySelector('[data-consent-cancel]')?.addEventListener('click', () => {
-            preferences.hidden = true;
-            banner.hidden = false;
+            closePreferences();
         });
 
         preferences?.querySelector('[data-consent-save]')?.addEventListener('click', () => {
