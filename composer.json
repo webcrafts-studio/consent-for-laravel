@@ -1,0 +1,71 @@
+{
+    "name": "webcrafts-studio/consent-for-laravel",
+    "description": "A Laravel-first cookie consent manager with Blade gates and category-based script activation.",
+    "keywords": [
+        "cookies",
+        "consent",
+        "gdpr",
+        "laravel",
+        "privacy"
+    ],
+    "homepage": "https://github.com/webcrafts-studio/consent-for-laravel",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Webcrafts Studio",
+            "email": "j.lipinski017@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/contracts": "^10.0||^11.0||^12.0||^13.0",
+        "illuminate/http": "^10.0||^11.0||^12.0||^13.0",
+        "illuminate/support": "^10.0||^11.0||^12.0||^13.0",
+        "illuminate/view": "^10.0||^11.0||^12.0||^13.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.14",
+        "nunomaduro/collision": "^8.8",
+        "orchestra/testbench": "^8.0||^9.0||^10.0||^11.0",
+        "pestphp/pest": "^3.0||^4.0",
+        "pestphp/pest-plugin-laravel": "^3.0||^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "WebcraftsStudio\\ConsentForLaravel\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "WebcraftsStudio\\ConsentForLaravel\\Tests\\": "tests/",
+            "Workbench\\App\\": "workbench/app/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": "@composer run prepare",
+        "prepare": "@php vendor/bin/testbench package:discover --ansi",
+        "test": "vendor/bin/pest",
+        "test-coverage": "vendor/bin/pest --coverage",
+        "format": "vendor/bin/pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "WebcraftsStudio\\ConsentForLaravel\\ConsentForLaravelServiceProvider"
+            ],
+            "aliases": {
+                "Consent": "WebcraftsStudio\\ConsentForLaravel\\Facades\\Consent"
+            }
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
