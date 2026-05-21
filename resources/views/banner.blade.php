@@ -40,6 +40,7 @@
     (() => {
         const banner = document.querySelector('[data-consent-banner]');
         const preferences = document.querySelector('[data-consent-preferences]');
+        let currentDecisions = null;
 
         if (! banner) {
             return;
@@ -53,6 +54,13 @@
             sameSite: @json(config('consent-for-laravel.cookie.same_site', 'Lax')),
             secure: @json(config('consent-for-laravel.cookie.secure')),
         };
+
+        const decisionsForAll = (accepted) => Object.fromEntries(
+            config.categories.map((category) => [
+                category,
+                accepted || config.requiredCategories.includes(category),
+            ]),
+        );
 
         const readConsentCookie = () => {
             const prefix = `${encodeURIComponent(config.cookieName)}=`;
@@ -71,11 +79,62 @@
             }
         };
 
-        const currentDecisions = readConsentCookie();
+        const hasConsent = (category, decisions) => (
+            config.requiredCategories.includes(category) || decisions?.[category] === true
+        );
 
-        if (! currentDecisions) {
-            banner.hidden = false;
-        }
+        const activeDecisions = () => currentDecisions || decisionsForAll(false);
+
+        const dispatchConsentEvent = (name, detail) => {
+            window.dispatchEvent(new CustomEvent(name, { detail }));
+        };
+
+        const revokedCategories = (previousDecisions, decisions) => {
+            if (! previousDecisions) {
+                return [];
+            }
+
+            return config.categories.filter((category) => (
+                previousDecisions[category] === true && decisions[category] !== true
+            ));
+        };
+
+        const activateScripts = (decisions = activeDecisions()) => {
+            document.querySelectorAll('script[type="text/plain"][data-consent]').forEach((script) => {
+                const category = script.dataset.consent;
+
+                if (! category || ! hasConsent(category, decisions)) {
+                    return;
+                }
+
+                const activatedScript = document.createElement('script');
+
+                Array.from(script.attributes).forEach((attribute) => {
+                    if (['type', 'data-consent', 'data-src', 'data-consent-activated'].includes(attribute.name)) {
+                        return;
+                    }
+
+                    activatedScript.setAttribute(attribute.name, attribute.value);
+                });
+
+                if (script.dataset.src) {
+                    activatedScript.src = script.dataset.src;
+                }
+
+                activatedScript.dataset.consentActivated = category;
+                activatedScript.textContent = script.textContent;
+
+                script.replaceWith(activatedScript);
+            });
+        };
+
+        const writeConsentCookie = (decisions) => {
+            const maxAge = Math.max(0, Number(config.lifetimeMinutes) || 0) * 60;
+            const sameSite = config.sameSite ? `; SameSite=${config.sameSite}` : '';
+            const secure = config.secure === true ? '; Secure' : '';
+
+            document.cookie = `${encodeURIComponent(config.cookieName)}=${encodeURIComponent(JSON.stringify(decisions))}; Path=/; Max-Age=${maxAge}${sameSite}${secure}`;
+        };
 
         const syncPreferenceInputs = (decisions) => {
             if (! preferences || ! decisions) {
@@ -92,25 +151,6 @@
                 input.checked = decisions[input.value] === true;
             });
         };
-
-        syncPreferenceInputs(currentDecisions);
-
-        const writeConsentCookie = (decisions) => {
-            const maxAge = Math.max(0, Number(config.lifetimeMinutes) || 0) * 60;
-            const sameSite = config.sameSite ? `; SameSite=${config.sameSite}` : '';
-            const secure = config.secure === true ? '; Secure' : '';
-
-            document.cookie = `${encodeURIComponent(config.cookieName)}=${encodeURIComponent(JSON.stringify(decisions))}; Path=/; Max-Age=${maxAge}${sameSite}${secure}`;
-            window.dispatchEvent(new CustomEvent('consent:updated', { detail: { decisions } }));
-            window.location.reload();
-        };
-
-        const decisionsForAll = (accepted) => Object.fromEntries(
-            config.categories.map((category) => [
-                category,
-                accepted || config.requiredCategories.includes(category),
-            ]),
-        );
 
         const decisionsFromPreferences = () => {
             if (! preferences) {
@@ -129,12 +169,38 @@
             );
         };
 
+        const persistConsent = (decisions) => {
+            const previousDecisions = currentDecisions;
+            const revoked = revokedCategories(previousDecisions, decisions);
+
+            writeConsentCookie(decisions);
+
+            currentDecisions = decisions;
+            syncPreferenceInputs(decisions);
+            activateScripts(decisions);
+
+            banner.hidden = true;
+
+            if (preferences) {
+                preferences.hidden = true;
+            }
+
+            dispatchConsentEvent('consent:updated', { decisions });
+
+            if (revoked.length > 0) {
+                dispatchConsentEvent('consent:revoked', {
+                    categories: revoked,
+                    decisions,
+                });
+            }
+        };
+
         const openPreferences = () => {
             if (! preferences) {
                 return;
             }
 
-            syncPreferenceInputs(readConsentCookie());
+            syncPreferenceInputs(activeDecisions());
 
             banner.hidden = true;
             preferences.hidden = false;
@@ -146,14 +212,25 @@
             }
 
             preferences.hidden = true;
-            banner.hidden = Boolean(readConsentCookie());
+            banner.hidden = Boolean(currentDecisions);
         };
+
+        currentDecisions = readConsentCookie();
+
+        if (! currentDecisions) {
+            banner.hidden = false;
+        }
+
+        syncPreferenceInputs(activeDecisions());
+        activateScripts(activeDecisions());
 
         window.ConsentForLaravel = {
             ...(window.ConsentForLaravel || {}),
             openPreferences,
             closePreferences,
-            decisions: () => readConsentCookie() || decisionsForAll(false),
+            activateScripts,
+            decisions: activeDecisions,
+            has: (category) => hasConsent(category, activeDecisions()),
         };
 
         document.querySelectorAll('[data-consent-open-preferences]').forEach((trigger) => {
@@ -164,11 +241,11 @@
         });
 
         banner.querySelector('[data-consent-accept]')?.addEventListener('click', () => {
-            writeConsentCookie(decisionsForAll(true));
+            persistConsent(decisionsForAll(true));
         });
 
         banner.querySelector('[data-consent-reject]')?.addEventListener('click', () => {
-            writeConsentCookie(decisionsForAll(false));
+            persistConsent(decisionsForAll(false));
         });
 
         banner.querySelector('[data-consent-customize]')?.addEventListener('click', () => {
@@ -180,7 +257,11 @@
         });
 
         preferences?.querySelector('[data-consent-save]')?.addEventListener('click', () => {
-            writeConsentCookie(decisionsFromPreferences());
+            persistConsent(decisionsFromPreferences());
+        });
+
+        dispatchConsentEvent('consent:ready', {
+            decisions: activeDecisions(),
         });
     })();
 </script>

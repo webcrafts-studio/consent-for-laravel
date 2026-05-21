@@ -49,6 +49,25 @@ Gate scripts or markup by consent category:
 @endunlessconsent
 ```
 
+For scripts that should become active immediately after consent is saved, render them as inert scripts:
+
+```blade
+<script type="text/plain" data-consent="marketing">
+    window.marketingPixelLoaded = true;
+</script>
+```
+
+External scripts can use `data-src` so the browser does not request them before consent:
+
+```blade
+<script
+    type="text/plain"
+    data-consent="analytics"
+    data-src="https://www.googletagmanager.com/gtag/js?id=G-XXXX"
+    async
+></script>
+```
+
 Check consent in PHP:
 
 ```php
@@ -74,6 +93,22 @@ Or call the browser API directly:
 </script>
 ```
 
+The browser runtime dispatches events after it starts and whenever consent changes:
+
+```js
+window.addEventListener('consent:ready', (event) => {
+    console.log(event.detail.decisions);
+});
+
+window.addEventListener('consent:updated', (event) => {
+    console.log(event.detail.decisions);
+});
+
+window.addEventListener('consent:revoked', (event) => {
+    console.log(event.detail.categories);
+});
+```
+
 ## Configuration
 
 The default categories are:
@@ -92,11 +127,12 @@ This first version is intentionally small:
 - first-party consent cookie
 - publishable config, banner view, and preferences panel
 - public JS API for opening the preferences panel
+- client-side activation for inert consent scripts
 - `@consent` and `@unlessconsent` Blade directives
 - `Consent` facade and `ConsentManager`
 - no database dependency
 
-Instant client-side activation without reload, Google Consent Mode v2, and audit tooling are planned next.
+Google Consent Mode v2 and audit tooling are planned next.
 
 ## Testing
 
