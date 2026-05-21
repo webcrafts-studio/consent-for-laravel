@@ -21,15 +21,25 @@
             Reject optional
         </button>
 
+        <button type="button" data-consent-customize style="padding: .55rem .8rem; border: 1px solid #d4d4d8; border-radius: .375rem; background: #fff; color: #18181b; cursor: pointer;">
+            Customize
+        </button>
+
         <button type="button" data-consent-accept style="padding: .55rem .8rem; border: 1px solid #18181b; border-radius: .375rem; background: #18181b; color: #fff; cursor: pointer;">
             Accept all
         </button>
     </div>
 </div>
 
+@include('consent-for-laravel::preferences', [
+    'consent' => $consent,
+    'categories' => $categories,
+])
+
 <script>
     (() => {
         const banner = document.querySelector('[data-consent-banner]');
+        const preferences = document.querySelector('[data-consent-preferences]');
 
         if (! banner) {
             return;
@@ -44,12 +54,39 @@
             secure: @json(config('consent-for-laravel.cookie.secure')),
         };
 
-        const hasCookie = document.cookie
-            .split('; ')
-            .some((cookie) => cookie.startsWith(`${encodeURIComponent(config.cookieName)}=`));
+        const readConsentCookie = () => {
+            const prefix = `${encodeURIComponent(config.cookieName)}=`;
+            const cookie = document.cookie
+                .split('; ')
+                .find((item) => item.startsWith(prefix));
 
-        if (! hasCookie) {
+            if (! cookie) {
+                return null;
+            }
+
+            try {
+                return JSON.parse(decodeURIComponent(cookie.slice(prefix.length)));
+            } catch {
+                return null;
+            }
+        };
+
+        const currentDecisions = readConsentCookie();
+
+        if (! currentDecisions) {
             banner.hidden = false;
+        }
+
+        if (preferences && currentDecisions) {
+            preferences.querySelectorAll('[data-consent-category]').forEach((input) => {
+                if (input.disabled) {
+                    input.checked = true;
+
+                    return;
+                }
+
+                input.checked = currentDecisions[input.value] === true;
+            });
         }
 
         const writeConsentCookie = (decisions) => {
@@ -62,19 +99,54 @@
             window.location.reload();
         };
 
-        const decisions = (accepted) => Object.fromEntries(
+        const decisionsForAll = (accepted) => Object.fromEntries(
             config.categories.map((category) => [
                 category,
                 accepted || config.requiredCategories.includes(category),
             ]),
         );
 
+        const decisionsFromPreferences = () => {
+            if (! preferences) {
+                return decisionsForAll(false);
+            }
+
+            return Object.fromEntries(
+                config.categories.map((category) => {
+                    const input = preferences.querySelector(`[data-consent-category][value="${category}"]`);
+
+                    return [
+                        category,
+                        config.requiredCategories.includes(category) || input?.checked === true,
+                    ];
+                }),
+            );
+        };
+
         banner.querySelector('[data-consent-accept]')?.addEventListener('click', () => {
-            writeConsentCookie(decisions(true));
+            writeConsentCookie(decisionsForAll(true));
         });
 
         banner.querySelector('[data-consent-reject]')?.addEventListener('click', () => {
-            writeConsentCookie(decisions(false));
+            writeConsentCookie(decisionsForAll(false));
+        });
+
+        banner.querySelector('[data-consent-customize]')?.addEventListener('click', () => {
+            if (! preferences) {
+                return;
+            }
+
+            banner.hidden = true;
+            preferences.hidden = false;
+        });
+
+        preferences?.querySelector('[data-consent-cancel]')?.addEventListener('click', () => {
+            preferences.hidden = true;
+            banner.hidden = false;
+        });
+
+        preferences?.querySelector('[data-consent-save]')?.addEventListener('click', () => {
+            writeConsentCookie(decisionsFromPreferences());
         });
     })();
 </script>

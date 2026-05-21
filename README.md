@@ -45,7 +45,7 @@ Gate scripts or markup by consent category:
 @endconsent
 
 @unlessconsent('marketing')
-    <p>You can enable marketing cookies in cookie preferences.</p>
+    <p>You can enable marketing cookies in the cookie preferences panel.</p>
 @endunlessconsent
 ```
 
@@ -74,12 +74,12 @@ You can customize labels, descriptions, and categories in `config/consent-for-la
 This first version is intentionally small:
 
 - first-party consent cookie
-- publishable config and banner view
+- publishable config, banner view, and preferences panel
 - `@consent` and `@unlessconsent` Blade directives
 - `Consent` facade and `ConsentManager`
 - no database dependency
 
-Instant client-side activation without reload, preferences modal, Google Consent Mode v2, and audit tooling are planned next. See [ROADMAP.md](ROADMAP.md).
+Instant client-side activation without reload, Google Consent Mode v2, and audit tooling are planned next.
 
 ## Testing
 

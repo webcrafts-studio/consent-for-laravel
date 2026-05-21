@@ -26,7 +26,16 @@ class ConsentForLaravelServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
-        Blade::if('consent', fn (string $category): bool => $this->app->make(ConsentManager::class)->has($category));
-        Blade::if('unlessconsent', fn (string $category): bool => $this->app->make(ConsentManager::class)->missing($category));
+        Blade::directive('consent', function (string $expression): string {
+            return "<?php if (app('".ConsentManager::class."')->has({$expression})): ?>";
+        });
+
+        Blade::directive('endconsent', fn (): string => '<?php endif; ?>');
+
+        Blade::directive('unlessconsent', function (string $expression): string {
+            return "<?php if (app('".ConsentManager::class."')->missing({$expression})): ?>";
+        });
+
+        Blade::directive('endunlessconsent', fn (): string => '<?php endif; ?>');
     }
 }
